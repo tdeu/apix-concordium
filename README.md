@@ -51,10 +51,10 @@ an agent, that agent's Verified by Concordium badge is valid).
 |---|---|
 | Agent registration (APIX Verifier #1480) | [65e88803…](https://ccdexplorer.io/testnet/transaction/65e88803135e618ca7661106105cf20a70361c7fc234d422894cbf16a9165171) |
 | Badge second pass (card with token address pinned) | [ecfbff7c…](https://ccdexplorer.io/testnet/transaction/ecfbff7ca580283cc2be1cd0a5ddcae29b8c2f84ab8fd512af702a59ef758bd8) |
-| x402 payment for [concordium-agent-unsafe](https://github.com/tdeu/concordium-agent-unsafe) | [01d6b635…](https://ccdexplorer.io/testnet/transaction/01d6b635aeba123d821b04b4dece9fdfc389d5a78abb8335f2405e992d468001) |
-| Attestation **FAIL** for concordium-agent-unsafe | [8038c548…](https://ccdexplorer.io/testnet/transaction/8038c54852ec8d8be3d5f8f84b833b29a82e9fe763b7c6991a10e7a67d4b8a70) |
-| x402 payment for [concordium-agent-safe](https://github.com/tdeu/concordium-agent-safe) | [4c42b8f1…](https://ccdexplorer.io/testnet/transaction/4c42b8f10a663301135a63bd39b36a572db588ac2549670813fb4726c6abf491) |
-| Attestation **PASS** for concordium-agent-safe | [1b04b641…](https://ccdexplorer.io/testnet/transaction/1b04b641e283ad87c87b22c9edd9adb97f621fdca177eba4dea879f7ea0f29a0) |
+| x402 payment for [concordium-agent-unsafe](https://github.com/tdeu/concordium-agent-unsafe) | [eef5a3e9…](https://ccdexplorer.io/testnet/transaction/eef5a3e99afb946c00a69194161647db992b482d70dffdacad70ff08006b33f9) |
+| Attestation **FAIL** for concordium-agent-unsafe (commit 5a5f4d18c89d) | [40989ddc…](https://ccdexplorer.io/testnet/transaction/40989ddc4b25a22939d5562a3f8960e51f58479360bbc117f344bd0f671eb9d8) |
+| x402 payment for [concordium-agent-safe](https://github.com/tdeu/concordium-agent-safe) | [be59db8d…](https://ccdexplorer.io/testnet/transaction/be59db8d1cac43bd35deeb137587ed52463eeeb8f0dad6bcef876246f5001f3f) |
+| Attestation **PASS** for concordium-agent-safe (commit d40a1900e1f1) | [e56174bd…](https://ccdexplorer.io/testnet/transaction/e56174bd517f1dd32b9dcf25bf156c029def0f2fb4a9256704b3b2a78b8e92f8) |
 | Agent Card | https://apix-agent-card.vercel.app/.well-known/agent-card.json |
 
 ## What the checks look for

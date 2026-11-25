@@ -125,7 +125,8 @@ export function createVerifierServer(options: ServerOptions): http.Server {
         if (requirements && !paymentHeader) {
           const required = paymentRequired(requirements, `${url.origin}/verify`, 'APIX Verifier: one code verification + on-chain attestation');
           res.setHeader('PAYMENT-REQUIRED', required.header);
-          log(id, `402 Payment Required: ${requirements.amount} ${requirements.asset} to ${requirements.payTo}`);
+          const shown = requirements.asset === 'CCD' ? `${Number(requirements.amount) / 1_000_000} CCD` : `${requirements.amount} ${requirements.asset} (atomic units)`;
+          log(id, `402 Payment Required: ${shown} to ${requirements.payTo}`);
           return send(res, 402, required.body);
         }
 
