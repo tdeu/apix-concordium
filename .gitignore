@@ -1,0 +1,17 @@
+node_modules/
+dist/
+# Concordium keys: never commit
+*.export
+keys/
+*.key.json
+# Local outputs
+apix-report.json
+report-*.json
+apix-attestation.json
+attestation-*.json
+apix-response.json
+response-*.json
+last-payload.json
+agent-card.raw.json
+agent-card.json.raw.json
+.env

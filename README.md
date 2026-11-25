@@ -1,0 +1,112 @@
+# APIX Verifier on Concordium
+
+**An AI agent that other agents pay to check their code, and that records the verdict on Concordium.**
+
+AI agents now write code that holds keys and moves money. Most of that code is never read by a
+human. APIX Verifier checks it, and makes the result something any other agent can trust without
+trusting us: the verdict is signed by an account with a verified human behind it, paid for with
+x402, and recorded on-chain.
+
+Built for the [Concordium Trusted Agents Hackathon](https://www.encodeclub.com/programmes/concordium-trusted-agents-hackathon) (Encode Club, Nov–Dec 2026), on the APIX verification engine by Emtée Studio.
+
+## How it works
+
+```
+ Client agent                     APIX Verifier (agent #1480, badge JyP9XfKkFPMSms2qdYnyD)        Concordium testnet
+      │  POST /verify {repo}                 │                                                    │
+      │─────────────────────────────────────>│                                                    │
+      │  402 Payment Required: 1 CCD         │                                                    │
+      │<─────────────────────────────────────│                                                    │
+      │  signs the transfer (x402 exact)     │                                                    │
+      │─────────────────────────────────────>│ verifies + co-signs as sponsor (fees paid by APIX) │
+      │                                      │───────────────────────────────────────────────────>│ payment
+      │                                      │ downloads the repo, runs the checks               │
+      │                                      │ records verdict + report hash (RegisterData)       │
+      │                                      │───────────────────────────────────────────────────>│ attestation
+      │  verdict, report, both tx links      │                                                    │
+      │<─────────────────────────────────────│                                                    │
+```
+
+Any third party can then check, from the chain alone, that a given app was verified, by whom,
+with what result, and that the report they hold is the one that was attested.
+
+## Concordium components used
+
+| Component | How APIX uses it |
+|---|---|
+| **Agent Registry (CIS-8004)** | APIX Verifier is registered as agent #1480 with an A2A Agent Card whose SHA-256 is pinned on-chain |
+| **Verified by Concordium badge** | `JyP9XfKkFPMSms2qdYnyD` (valid: `apix concordium check JyP9XfKkFPMSms2qdYnyD`). The owner account is backed by a Concordium identity |
+| **Agent Registry MCP server** | Builds every registry payload (`build_agent_card`, `build_register`, `build-set-agent-uri`, `check-badge`); signing stays local |
+| **x402 payments** | Official `@x402/concordium` package (exact scheme): APIX runs its own facilitator |
+| **Sponsored transactions** | The client signs only its transfer; APIX's sponsor account adds its signature and pays the fee |
+| **Identity-backed accounts** | Owner, attester and client accounts each come from a Concordium identity (testnet identity provider) |
+| **RegisterData** | Each attestation: verdict, report SHA-256, code tree hash, commit, optional client badge (≤ 256 bytes, no smart contract) |
+
+## Live on testnet
+
+| What | Link |
+|---|---|
+| Agent registration (APIX Verifier #1480) | [65e88803…](https://ccdexplorer.io/testnet/transaction/65e88803135e618ca7661106105cf20a70361c7fc234d422894cbf16a9165171) |
+| Badge second pass (card with token address pinned) | [ecfbff7c…](https://ccdexplorer.io/testnet/transaction/ecfbff7ca580283cc2be1cd0a5ddcae29b8c2f84ab8fd512af702a59ef758bd8) |
+| x402 payment for [concordium-agent-unsafe](https://github.com/tdeu/concordium-agent-unsafe) | [01d6b635…](https://ccdexplorer.io/testnet/transaction/01d6b635aeba123d821b04b4dece9fdfc389d5a78abb8335f2405e992d468001) |
+| Attestation **FAIL** for concordium-agent-unsafe | [8038c548…](https://ccdexplorer.io/testnet/transaction/8038c54852ec8d8be3d5f8f84b833b29a82e9fe763b7c6991a10e7a67d4b8a70) |
+| x402 payment for [concordium-agent-safe](https://github.com/tdeu/concordium-agent-safe) | [4c42b8f1…](https://ccdexplorer.io/testnet/transaction/4c42b8f10a663301135a63bd39b36a572db588ac2549670813fb4726c6abf491) |
+| Attestation **PASS** for concordium-agent-safe | [1b04b641…](https://ccdexplorer.io/testnet/transaction/1b04b641e283ad87c87b22c9edd9adb97f621fdca177eba4dea879f7ea0f29a0) |
+| Agent Card | https://apix-agent-card.vercel.app/.well-known/agent-card.json |
+
+## What the checks look for
+
+`apix verify` reads the code (it never runs it) and checks eight things:
+
+- keys or Concordium wallet exports committed to the repository
+- env files with secrets committed
+- secrets exposed through public env variables (`NEXT_PUBLIC_…`)
+- browser code that builds a signer from a key
+- server routes that sign and send transactions without checking the caller, or with an uncapped amount
+- AI tools that can move funds with no amount limit or allowlist
+- mainnet hardcoded in code that spends
+- whether there is Concordium code to check at all
+
+Each failure comes with a plain-words fix. The report is canonical JSON; its SHA-256 is what goes on-chain.
+
+## Quick start
+
+Requires Node 22.12+ and Concordium testnet accounts exported from Concordium Wallet for Web
+(keep the `.export` files outside any git repository: the CLI refuses keys inside one).
+
+```bash
+npm install
+npm run build
+
+# Check a project locally
+node dist/cli/index.js verify examples/concordium-agent-unsafe
+
+# Run the verifier service with x402 (attester receives payments and signs attestations,
+# sponsor pays the transaction fees)
+node dist/cli/index.js concordium serve \
+  --key /keys/attester.export --sponsor-key /keys/sponsor.export --price 1 \
+  --badge JyP9XfKkFPMSms2qdYnyD --card https://apix-agent-card.vercel.app/.well-known/agent-card.json
+
+# Act as a client agent: pay and get a verdict
+node dist/cli/index.js concordium request https://github.com/tdeu/concordium-agent-safe \
+  --key /keys/client.export --max 2
+
+# Check any attestation from the chain
+node dist/cli/index.js concordium attestation <txHash> --attester <attester account> --report <report.json>
+```
+
+Registering your own agent: `apix concordium card` → host the file → `apix concordium register` →
+`apix concordium card --token-id <id>` → re-host → `apix concordium pin`.
+
+## Path to production
+
+To be completed: mainnet deployment, hosted service, fees and pricing, trusted attester keys.
+
+## Repository
+
+- `src/verify`: the checks and the report format
+- `src/concordium`: registry, badge, attestations, x402 payments, the HTTP service
+- `src/cli`: the `apix` command
+- `examples/`: the two demo agents (also published as their own repos)
+
+MIT licence. Emtée Studio.

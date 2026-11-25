@@ -1,0 +1,6 @@
+{
+  "name": "concordium-agent-safe",
+  "private": true,
+  "description": "Demo: the same AI shopping agent on Concordium, with the fixes APIX asks for.",
+  "dependencies": { "@concordium/web-sdk": "^12.0.3", "next": "^15.0.0", "openai": "^5.0.0" }
+}
