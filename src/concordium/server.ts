@@ -5,6 +5,7 @@
 // GET  /attestation/<txHash>   read an attestation back and decode it
 // GET  /                       what this agent is and how to call it
 // Payment (x402) will gate POST /verify: see requirePayment.
+import fs from 'fs';
 import http from 'http';
 import { AccountAddress } from '@concordium/web-sdk';
 import { NetworkConfig } from './config';
@@ -23,6 +24,8 @@ export interface ServerOptions {
   agentCardUrl?: string;
   /** Write attestations on-chain (false = verify only, for local tests) */
   attest: boolean;
+  /** Where to keep the list of attestations this service wrote (a pointer index; the chain is the source of truth) */
+  indexFile?: string;
   /** x402: when set, POST /verify requires a payment, settled by our own facilitator */
   payment?: { price: PriceConfig; facilitator: LocalFacilitator };
 }
@@ -54,6 +57,24 @@ async function readJson(req: http.IncomingMessage): Promise<Record<string, unkno
   }
 }
 
+export interface IndexEntry {
+  repo: string;
+  ref?: string;
+  commit?: string;
+  verdict: string;
+  txHash: string;
+  subject?: string;
+  at: string;
+}
+
+function readIndex(file: string): IndexEntry[] {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8')) as IndexEntry[];
+  } catch {
+    return [];
+  }
+}
+
 let busy = false; // one verification at a time: the attester signs sequentially (nonces)
 
 export function createVerifierServer(options: ServerOptions): http.Server {
@@ -73,8 +94,14 @@ export function createVerifierServer(options: ServerOptions): http.Server {
           network: options.cfg.network,
           attester: attesterAddress,
           price: options.payment ? { ...options.payment.price, network: options.cfg.network, protocol: 'x402 exact (Concordium, sponsored fees)', sponsor: options.payment.facilitator.sponsor } : 'free',
-          usage: { verify: 'POST /verify {"repo":"https://github.com/owner/repo","ref":"optional","subject":"optional badge"}', attestation: 'GET /attestation/<txHash>' },
+          usage: { attestations: 'GET /attestations?app=https://github.com/owner/repo', verify: 'POST /verify {"repo":"https://github.com/owner/repo","ref":"optional","subject":"optional badge"}', attestation: 'GET /attestation/<txHash>' },
         });
+      }
+      if (req.method === 'GET' && url.pathname === '/attestations') {
+        const app = url.searchParams.get('app');
+        const all = readIndex(options.indexFile ?? 'apix-attestations.json');
+        const list = (app ? all.filter(e => e.repo === parseGithubUrl(app).url) : all).slice().reverse();
+        return send(res, 200, { attester: attesterAddress, network: options.cfg.network, attestations: list.slice(0, 50) });
       }
       if (req.method === 'GET' && url.pathname.startsWith('/attestation/')) {
         const tx = url.pathname.split('/')[2] ?? '';
@@ -139,13 +166,23 @@ export function createVerifierServer(options: ServerOptions): http.Server {
             };
           }
           const appId = repo.ref ? `${repo.url}@${repo.ref}` : repo.url;
-          const report = await verifyConcordiumProject({ directory: source.dir, appId, network: options.cfg.network, apixVersion: options.apixVersion });
+          const report = await verifyConcordiumProject({
+            directory: source.dir, appId, network: options.cfg.network, apixVersion: options.apixVersion, archive: { commit: source.commit },
+          });
           const hash = reportHash(report);
           log(id, `verdict ${report.summary.verdict.toUpperCase()} (${report.filesScanned} files, report ${hash.slice(0, 12)}…)`);
           let attestation: unknown = null;
           if (options.attest) {
             log(id, 'writing the attestation on Concordium…');
             const tx = await attestOnConcordium(options.cfg, options.attester, report, hash, subject);
+            if (tx.outcome === 'success') {
+              const file = options.indexFile ?? 'apix-attestations.json';
+              const entry: IndexEntry = {
+                repo: repo.url, ...(repo.ref ? { ref: repo.ref } : {}), ...(source.commit ? { commit: source.commit } : {}),
+                verdict: report.summary.verdict, txHash: tx.txHash, ...(subject ? { subject } : {}), at: new Date().toISOString(),
+              };
+              fs.writeFileSync(file, JSON.stringify([...readIndex(file), entry], null, 2) + '\n');
+            }
             attestation = tx.outcome === 'success'
               ? { txHash: tx.txHash, explorer: ccdExplorerTx(options.cfg, tx.txHash), attester: attesterAddress, onChain: tx.attestation }
               : { error: 'Attestation transaction rejected', txHash: tx.txHash };

@@ -28,7 +28,10 @@ Built for the [Concordium Trusted Agents Hackathon](https://www.encodeclub.com/p
 ```
 
 Any third party can then check, from the chain alone, that a given app was verified, by whom,
-with what result, and that the report they hold is the one that was attested.
+with what result, at which commit, and that the report they hold is the one that was attested.
+`apix concordium trust` does exactly that before an agent deals with an app: it answers ALLOW only
+if the app's current commit is attested PASS by an attester it trusts (and, if the attestation names
+an agent, that agent's Verified by Concordium badge is valid).
 
 ## Concordium components used
 
@@ -93,6 +96,11 @@ node dist/cli/index.js concordium request https://github.com/tdeu/concordium-age
 
 # Check any attestation from the chain
 node dist/cli/index.js concordium attestation <txHash> --attester <attester account> --report <report.json>
+
+# Before dealing with an app: ALLOW only if its *current* commit is attested PASS
+# by the trusted attester (read from the chain; the service only gives the pointer)
+node dist/cli/index.js concordium trust https://github.com/tdeu/concordium-agent-safe \
+  --attester 34hyqL9dYjS1rnLfacRKVFPTZouPACo2waETtVqiVjFuRDpFJc --verifier http://localhost:8402
 ```
 
 Registering your own agent: `apix concordium card` → host the file → `apix concordium register` →

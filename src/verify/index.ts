@@ -10,10 +10,12 @@ export interface VerifyOptions {
   appId?: string;
   network: string;
   apixVersion: string;
+  /** Set when the code comes from a downloaded archive: its commit, and no git lookups */
+  archive?: { commit?: string };
 }
 
 export async function verifyConcordiumProject(options: VerifyOptions): Promise<VerifyReport> {
-  const project = await collectFiles(options.directory);
+  const project = await collectFiles(options.directory, { archive: options.archive });
   if (project.files.length === 0) {
     throw new Error(`No source files found in ${options.directory}. Run apix verify in the app's folder.`);
   }

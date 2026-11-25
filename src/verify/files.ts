@@ -34,11 +34,25 @@ export function isEnvFile(name: string): boolean {
   return /^\.env(\..+)?$/.test(name);
 }
 
-export async function collectFiles(root: string): Promise<ProjectFiles> {
+export interface CollectOptions {
+  /**
+   * The code comes from an archive (e.g. a GitHub tarball), not a working copy:
+   * every file in it is part of the repository, and git must not be asked
+   * (the temp folder may sit inside an unrelated repository).
+   */
+  archive?: { commit?: string };
+}
+
+export async function collectFiles(root: string, options: CollectOptions = {}): Promise<ProjectFiles> {
   const absoluteRoot = path.resolve(root);
   if (!await fs.pathExists(absoluteRoot)) throw new Error(`No such directory: ${root}`);
 
-  const { isGitRepo, tracked, ignored, commit } = gitInfo(absoluteRoot);
+  const fromArchive = options.archive !== undefined;
+  const info = fromArchive
+    ? { isGitRepo: true, tracked: new Set<string>(), ignored: new Set<string>(), commit: options.archive?.commit }
+    : gitInfo(absoluteRoot);
+  const { isGitRepo, ignored, commit } = info;
+  const tracked = info.tracked;
   const files: SourceFile[] = [];
 
   const walk = async (dir: string): Promise<void> => {
@@ -55,7 +69,7 @@ export async function collectFiles(root: string): Promise<ProjectFiles> {
       const stat = await fs.stat(full);
       if (stat.size > MAX_BYTES) continue;
       const rel = path.relative(absoluteRoot, full).split(path.sep).join('/');
-      files.push({ path: rel, content: await fs.readFile(full, 'utf8'), tracked: tracked.has(rel), ignored: ignored.has(rel) });
+      files.push({ path: rel, content: await fs.readFile(full, 'utf8'), tracked: fromArchive || tracked.has(rel), ignored: ignored.has(rel) });
     }
   };
   await walk(absoluteRoot);

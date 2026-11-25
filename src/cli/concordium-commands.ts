@@ -9,7 +9,8 @@ import { networkConfig, txLink } from '../concordium/config';
 import { loadWallet, bigintSafe } from '../concordium/chain';
 import { attestOnConcordium, readAttestation } from '../concordium/attest';
 import { createVerifierServer } from '../concordium/server';
-import { LocalFacilitator, payFor } from '../concordium/payment';
+import { LocalFacilitator, payFor, ccdExplorerTx } from '../concordium/payment';
+import { latestCommit, parseGithubUrl } from '../concordium/github-source';
 import { reportHash } from '../verify/report';
 import { VerifyReport } from '../verify/types';
 import {
@@ -219,6 +220,7 @@ export function registerConcordiumCommands(program: Command, apixVersion = 'dev'
     .option('--badge <tokenAddress>', 'APIX Verifier badge, shown on GET /')
     .option('--card <url>', 'Agent Card URL, shown on GET /')
     .option('--no-attest', 'Verify only, do not write attestations on-chain')
+    .option('--index <file>', 'Where to keep the list of attestations written', 'apix-attestations.json')
     .option('--sponsor-key <file>', 'x402: wallet export of the account that sponsors payment fees (turns payments on)')
     .option('--price <ccd>', 'x402: price per verification in CCD', '1')
     .option('--network <network>', 'testnet or mainnet', 'testnet')
@@ -242,7 +244,7 @@ export function registerConcordiumCommands(program: Command, apixVersion = 'dev'
         };
       }
       const server = createVerifierServer({
-        cfg, attester, apixVersion, badge: options.badge, agentCardUrl: options.card, attest: options.attest, payment,
+        cfg, attester, apixVersion, badge: options.badge, agentCardUrl: options.card, attest: options.attest, payment, indexFile: options.index,
       });
       server.listen(Number(options.port), () => {
         console.log(chalk.green(`✅ APIX Verifier listening on http://localhost:${options.port}`));
@@ -291,6 +293,61 @@ export function registerConcordiumCommands(program: Command, apixVersion = 'dev'
       console.log((verdict === 'PASS' ? chalk.green : verdict === 'FAIL' ? chalk.red : chalk.yellow)(`Verdict: ${verdict}`));
       if (result.attestation?.txHash) console.log(chalk.green(`✅ Attested on Concordium: ${result.attestation.explorer}`));
       console.log(chalk.gray(`Full response in ${options.out}`));
+    }));
+
+  ccd
+    .command('trust <repo>')
+    .description('Before dealing with an app: is its current code attested PASS by a trusted APIX attester? Checks the chain, not the service')
+    .requiredOption('--attester <account>', 'APIX attester account you trust')
+    .option('--verifier <url>', 'APIX Verifier to ask for the attestation pointer', 'http://localhost:8402')
+    .option('--tx <txHash>', 'Use this attestation directly (no verifier needed)')
+    .option('--require-badge', 'Also require a valid Verified by Concordium badge for the attested agent')
+    .option('--network <network>', 'testnet or mainnet', 'testnet')
+    .action(run(async (repoUrl: string, options) => {
+      const cfg = networkConfig(options.network);
+      const repo = parseGithubUrl(repoUrl);
+      const reasons: string[] = [];
+      const ok = (m: string) => console.log(chalk.green(`  ✓ ${m}`));
+      const bad = (m: string) => { reasons.push(m); console.log(chalk.red(`  ✗ ${m}`)); };
+
+      console.log(`Trust check: ${repo.url}${repo.ref ? '@' + repo.ref : ''}`);
+      const current = await latestCommit(repo);
+      console.log(chalk.gray(`  current commit ${current.slice(0, 12)}`));
+
+      let tx: string | undefined = options.tx;
+      if (!tx) {
+        const res = await fetch(`${options.verifier.replace(/\/$/, '')}/attestations?app=${encodeURIComponent(repo.url)}`);
+        if (!res.ok) throw new Error(`The verifier answered HTTP ${res.status}`);
+        const list = (await res.json() as { attestations: Array<{ txHash: string; commit?: string; ref?: string }> }).attestations
+          .filter(e => (e.ref ?? undefined) === (repo.ref ?? undefined));
+        const match = list.find(e => e.commit === current) ?? list[0];
+        tx = match?.txHash;
+      }
+      if (!tx) {
+        bad('no APIX attestation found for this repo');
+      } else {
+        const found = await readAttestation(cfg, tx);
+        const a = found.attestation;
+        console.log(chalk.gray(`  attestation ${ccdExplorerTx(cfg, tx)}`));
+        found.attester === options.attester ? ok(`signed on-chain by the trusted attester ${options.attester.slice(0, 8)}…`) : bad(`signed by ${found.attester}, not by the trusted attester`);
+        a.app.startsWith(repo.url) ? ok('attestation is about this repo') : bad(`attestation is about ${a.app}, not ${repo.url}`);
+        if (!a.c) bad('attestation does not record a commit');
+        else if (current.startsWith(a.c)) ok(`attested commit ${a.c} is the current code`);
+        else bad(`code changed since the attestation (attested ${a.c}, current ${current.slice(0, 12)})`);
+        a.v === 'pass' ? ok('verdict PASS') : bad(`verdict ${a.v.toUpperCase()}`);
+        if (a.s) {
+          const badge = await checkBadge(a.s, cfg.network) as { badge_valid?: boolean };
+          badge?.badge_valid ? ok(`agent badge ${a.s} is a valid Verified by Concordium badge`) : bad(`agent badge ${a.s} is not valid`);
+        } else if (options.requireBadge) {
+          bad('no agent badge recorded in the attestation');
+        }
+      }
+      if (reasons.length === 0) {
+        console.log(chalk.green.bold('ALLOW: verified by APIX, attested on Concordium, code unchanged'));
+      } else {
+        console.log(chalk.red.bold(`DENY: ${reasons[0]}`));
+        process.exitCode = 1;
+      }
     }));
 
   ccd
