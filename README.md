@@ -55,7 +55,10 @@ an agent, that agent's Verified by Concordium badge is valid).
 | Attestation **FAIL** for concordium-agent-unsafe (commit 5a5f4d18c89d) | [40989ddc…](https://ccdexplorer.io/testnet/transaction/40989ddc4b25a22939d5562a3f8960e51f58479360bbc117f344bd0f671eb9d8) |
 | x402 payment for [concordium-agent-safe](https://github.com/tdeu/concordium-agent-safe) | [be59db8d…](https://ccdexplorer.io/testnet/transaction/be59db8d1cac43bd35deeb137587ed52463eeeb8f0dad6bcef876246f5001f3f) |
 | Attestation **PASS** for concordium-agent-safe (commit d40a1900e1f1) | [e56174bd…](https://ccdexplorer.io/testnet/transaction/e56174bd517f1dd32b9dcf25bf156c029def0f2fb4a9256704b3b2a78b8e92f8) |
-| Agent Card | https://apix-agent-card.vercel.app/.well-known/agent-card.json |
+| Client agent registration (APIX Demo Client Agent #1522, badge `JyP9YTHyNUJRd71gBmtEL`) | [12271e02…](https://ccdexplorer.io/testnet/transaction/12271e02374a285f59870eb3ba8d6e2bbaef2db63ba1bdd0bc094ed3ad32a740) |
+| Full flow: client agent pays for a check of concordium-agent-safe | [f0158302…](https://ccdexplorer.io/testnet/transaction/f015830254fa89e9eeeb09a50b7e1c0be82754966fc1ab4a8db20f1a77363ae7) |
+| Full flow: attestation **PASS** naming the client agent's badge (`apix concordium trust … --require-badge` → ALLOW) | [82efcc71…](https://ccdexplorer.io/testnet/transaction/82efcc712a08d20288467cabf05bbd47125e63455d09ad6a72eeca075a946841) |
+| Agent Cards | [APIX Verifier](https://apix-agent-card.vercel.app/.well-known/agent-card.json), [client agent](https://apix-agent-card.vercel.app/client/agent-card.json) |
 
 ## What the checks look for
 
