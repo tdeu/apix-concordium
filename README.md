@@ -111,7 +111,7 @@ Registering your own agent: `apix concordium card` → host the file → `apix c
 
 ## Hosting the service (Vercel)
 
-The same service runs as a serverless function (`api/index.js` → `src/serverless.ts`).
+The same service runs as a serverless function (`api/index.mjs` → `src/serverless.ts`, bundled as an ES module).
 Keys are never files on the host: they are Vercel encrypted environment variables.
 
 | Variable | Content |

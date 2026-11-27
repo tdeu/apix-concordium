@@ -1,11 +1,16 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npm run build && npm run build:serverless",
   "outputDirectory": "public",
   "functions": {
-    "api/index.js": {
+    "api/index.mjs": {
       "maxDuration": 120,
       "includeFiles": "{dist/**,package.json,node_modules/@concordium/**,node_modules/@x402/**}"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/api/index"
+    }
+  ]
 }
