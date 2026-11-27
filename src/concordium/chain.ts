@@ -37,13 +37,17 @@ export function client(cfg: NetworkConfig): ConcordiumGRPCNodeClient {
  */
 export function loadWallet(keyFile: string): Wallet {
   if (!fs.existsSync(keyFile)) throw new Error(`Key file not found: ${keyFile}`);
-  const raw = fs.readFileSync(keyFile, 'utf8');
+  return loadWalletFromJson(fs.readFileSync(keyFile, 'utf8'), keyFile);
+}
+
+/** Same, from the content of the export (e.g. an encrypted environment variable on a host). */
+export function loadWalletFromJson(raw: string, label = 'the key'): Wallet {
   let parsed;
   try {
     parsed = parseWallet(raw);
   } catch (error) {
     throw new Error(
-      `Could not read ${keyFile} as a Concordium wallet export (${error instanceof Error ? error.message : error}). ` +
+      `Could not read ${label} as a Concordium wallet export (${error instanceof Error ? error.message : error}). ` +
         'Export the account from Concordium Wallet for Web: account settings → Export private key.'
     );
   }

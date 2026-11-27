@@ -43,6 +43,17 @@ function send(res: http.ServerResponse, status: number, body: unknown): void {
 }
 
 async function readJson(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+  // Some hosts (Vercel) parse the body before the handler runs: use it, the stream is spent
+  const pre = (req as unknown as { body?: unknown }).body;
+  if (pre !== undefined && pre !== null) {
+    if (typeof pre === 'string') {
+      try { return JSON.parse(pre || '{}'); } catch { throw Object.assign(new Error('Body must be JSON'), { status: 400 }); }
+    }
+    if (Buffer.isBuffer(pre)) {
+      try { return JSON.parse(pre.toString('utf8') || '{}'); } catch { throw Object.assign(new Error('Body must be JSON'), { status: 400 }); }
+    }
+    if (typeof pre === 'object') return pre as Record<string, unknown>;
+  }
   let size = 0;
   const chunks: Buffer[] = [];
   for await (const chunk of req) {
@@ -78,10 +89,23 @@ function readIndex(file: string): IndexEntry[] {
 let busy = false; // one verification at a time: the attester signs sequentially (nonces)
 
 export function createVerifierServer(options: ServerOptions): http.Server {
+  return http.createServer(createVerifierHandler(options));
+}
+
+/** The request handler on its own, for hosts that bring their own HTTP server (serverless). */
+/** Origin the client used (behind Vercel or another proxy: x-forwarded-* headers). */
+function publicOrigin(req: http.IncomingMessage): string {
+  const first = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value)?.split(',')[0].trim();
+  const host = first(req.headers['x-forwarded-host']) ?? first(req.headers.host) ?? 'localhost';
+  const proto = first(req.headers['x-forwarded-proto']) ?? 'http';
+  return `${proto === 'https' ? 'https' : 'http'}://${/^[A-Za-z0-9.:\-[\]]+$/.test(host) ? host : 'localhost'}`;
+}
+
+export function createVerifierHandler(options: ServerOptions): (req: http.IncomingMessage, res: http.ServerResponse) => Promise<unknown> {
   const attesterAddress = AccountAddress.toBase58(options.attester.sender);
-  return http.createServer(async (req, res) => {
+  return async (req, res) => {
     try {
-      const url = new URL(req.url ?? '/', 'http://localhost');
+      const url = new URL(req.url ?? '/', publicOrigin(req));
       if (req.method === 'OPTIONS') {
         res.writeHead(204, { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'content-type, x-payment, payment-signature', 'access-control-expose-headers': 'payment-required, payment-response', 'access-control-allow-methods': 'GET, POST' });
         return res.end();
@@ -201,5 +225,5 @@ export function createVerifierServer(options: ServerOptions): http.Server {
       const status = (error as { status?: number }).status ?? 500;
       return send(res, status, { error: error instanceof Error ? error.message : String(error) });
     }
-  });
+  };
 }

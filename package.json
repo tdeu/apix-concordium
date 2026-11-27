@@ -3,12 +3,22 @@
   "version": "0.1.0",
   "description": "APIX Verifier on Concordium: an agent that other agents pay (x402) to verify their code, with PASS/FAIL attestations recorded on Concordium and a Verified by Concordium badge.",
   "license": "MIT",
-  "author": "Emtée Studio",
-  "repository": { "type": "git", "url": "https://github.com/tdeu/apix-concordium" },
-  "bin": { "apix": "dist/cli/index.js" },
+  "author": "Emt\u00e9e Studio",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tdeu/apix-concordium"
+  },
+  "bin": {
+    "apix": "dist/cli/index.js"
+  },
   "main": "dist/cli/index.js",
-  "files": ["dist", "README.md"],
-  "engines": { "node": ">=22.12" },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "build": "tsc",
     "test": "jest",
@@ -36,6 +46,8 @@
   "jest": {
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "roots": ["<rootDir>/src"]
+    "roots": [
+      "<rootDir>/src"
+    ]
   }
 }

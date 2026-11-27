@@ -109,6 +109,22 @@ node dist/cli/index.js concordium trust https://github.com/tdeu/concordium-agent
 Registering your own agent: `apix concordium card` → host the file → `apix concordium register` →
 `apix concordium card --token-id <id>` → re-host → `apix concordium pin`.
 
+## Hosting the service (Vercel)
+
+The same service runs as a serverless function (`api/index.js` → `src/serverless.ts`).
+Keys are never files on the host: they are Vercel encrypted environment variables.
+
+| Variable | Content |
+|---|---|
+| `APIX_ATTESTER_KEY_JSON` | content of the attester's wallet export (receives payments, signs attestations) |
+| `APIX_SPONSOR_KEY_JSON` | content of the sponsor's wallet export (pays the x402 transaction fees) |
+| `APIX_PRICE_CCD` | price per verification, default `1` |
+| `APIX_BADGE` | the verifier's Agent Registry token id |
+| `APIX_CARD_URL` | URL of the hosted agent card |
+
+The function is limited to testnet. The attestation index (`GET /attestations`) is best effort on a
+serverless host; the chain is the source of truth, and `apix trust --tx` checks it directly.
+
 ## Path to production
 
 To be completed: mainnet deployment, hosted service, fees and pricing, trusted attester keys.
